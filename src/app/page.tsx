@@ -26,7 +26,7 @@ export default function Home() {
   const [modelsList, setModelsList] = useState<string[]>([]);
   const [pendingModelSelect, setPendingModelSelect] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const DEFAULT_MODEL = "@cf/moonshotai/kimi-k2.5";
@@ -452,24 +452,24 @@ function InputPrompt({
   setInput: (v: string) => void;
   handleSubmit: (e: React.FormEvent) => void;
   streaming: boolean;
-  inputRef: React.RefObject<HTMLInputElement | null>;
+  inputRef: React.RefObject<HTMLTextAreaElement | null>;
 }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex items-center gap-2 px-4 py-3 border-t border-green-700 bg-black"
+      className="flex items-start gap-2 px-4 pt-3 pb-6 border-t border-green-700 bg-black"
     >
-      <span className="text-green-300 font-bold">{">"}</span>
-      <input
+      <span className="text-green-300 font-bold mt-2">{">"}</span>
+      <textarea
         ref={inputRef}
-        type="text"
         value={input}
         onChange={(e) => setInput(e.target.value)}
         disabled={streaming}
         placeholder={
           streaming ? "Streaming in progress..." : "Type a message or /help"
         }
-        className="flex-1 bg-black text-green-400 border-none outline-none placeholder-green-800 font-mono"
+        rows={3}
+        className="flex-1 bg-black text-green-400 border-none outline-none placeholder-green-800 font-mono resize-none"
       />
     </form>
   );
