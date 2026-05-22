@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "terminal": "next dev"
+    "terminal": "start \"kimitui\" cmd /k \"next dev\""
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
