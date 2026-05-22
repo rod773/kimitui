@@ -3,6 +3,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Xterm from "./components/Xterm";
 
+function extractFiles(text: string): Array<{ path: string; content: string }> {
+  const files: Array<{ path: string; content: string }> = [];
+  const blockRegex = /```(\w+)\n\s*\/\/\s*(.+?)\n([\s\S]*?)```/g;
+  const hashRegex = /```(\w+)\n\s*#\s*(.+?)\n([\s\S]*?)```/g;
+  const colonRegex = /```(\w+):(.+?)\n([\s\S]*?)```/g;
+  for (const regex of [blockRegex, hashRegex, colonRegex]) {
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const path = match[2].trim();
+      const content = match[3].trimEnd();
+      if (path && content) {
+        files.push({ path, content });
+      }
+    }
+  }
+  return files;
+}
+
 type Message = {
   role: "user" | "assistant" | "system";
   content: string;
@@ -82,6 +100,18 @@ export default function Home() {
     });
   }, []);
 
+  const fsOp = useCallback(
+    async (action: string, body: Record<string, unknown>) => {
+      const res = await fetch("/api/fs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...body }),
+      });
+      return res.json() as Promise<{ type: string; data?: unknown; message?: string }>;
+    },
+    []
+  );
+
   const handleStreamChat = useCallback(
     async (model: string, userMessage: string) => {
       const abort = new AbortController();
@@ -90,6 +120,8 @@ export default function Home() {
 
       addMessage({ role: "user", content: userMessage });
       addMessage({ role: "assistant", content: "Thinking..." });
+
+      let fullContent = "";
 
       try {
         const res = await fetch("/api/chat", {
@@ -124,6 +156,7 @@ export default function Home() {
             try {
               const parsed = JSON.parse(line);
               if (parsed.type === "chunk") {
+                fullContent += parsed.data;
                 appendToLastMessage(parsed.data);
               } else if (parsed.type === "done") {
                 setStreaming(false);
@@ -146,8 +179,27 @@ export default function Home() {
         setStreaming(false);
         abortRef.current = null;
       }
+
+      const files = extractFiles(fullContent);
+      if (files.length > 0) {
+        let written = 0;
+        let failed = 0;
+        for (const f of files) {
+          try {
+            const r = await fsOp("write", { path: f.path, content: f.content });
+            if (r.type === "result") written++;
+            else failed++;
+          } catch {
+            failed++;
+          }
+        }
+        addMessage({
+          role: "system",
+          content: `\n📁 Created ${written} file${written !== 1 ? "s" : ""}${failed > 0 ? ` (${failed} failed)` : ""}: ${files.map(f => f.path).join(", ")}`,
+        });
+      }
     },
-    [addMessage, appendToLastMessage, updateLastMessage]
+    [addMessage, appendToLastMessage, updateLastMessage, fsOp]
   );
 
   const fetchModels = useCallback(async () => {
@@ -206,18 +258,6 @@ export default function Home() {
       }
     },
     [modelsList, addMessage]
-  );
-
-  const fsOp = useCallback(
-    async (action: string, body: Record<string, unknown>) => {
-      const res = await fetch("/api/fs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, ...body }),
-      });
-      return res.json() as Promise<{ type: string; data?: unknown; message?: string }>;
-    },
-    []
   );
 
   const handleCommand = useCallback(

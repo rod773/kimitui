@@ -54,6 +54,24 @@ function sanitizePath(userPath) {
   return resolved;
 }
 
+function extractFiles(text) {
+  const files = [];
+  const blockRegex = /```(\w+)\n\s*\/\/\s*(.+?)\n([\s\S]*?)```/g;
+  const hashRegex = /```(\w+)\n\s*#\s*(.+?)\n([\s\S]*?)```/g;
+  const colonRegex = /```(\w+):(.+?)\n([\s\S]*?)```/g;
+  for (const regex of [blockRegex, hashRegex, colonRegex]) {
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const path = match[2].trim();
+      const content = match[3].trimEnd();
+      if (path && content) {
+        files.push({ path, content });
+      }
+    }
+  }
+  return files;
+}
+
 function print(msg, color = "") {
   console.log(color + msg + "\x1b[0m");
 }
@@ -106,6 +124,23 @@ async function streamChat(model, userMessage) {
     }
     process.stdout.write("\x1b[0m\n");
     messages.push({ role: "assistant", content: fullContent });
+
+    const files = extractFiles(fullContent);
+    if (files.length > 0) {
+      let written = 0;
+      let failed = 0;
+      for (const f of files) {
+        try {
+          const safePath = sanitizePath(f.path);
+          mkdirSync(safePath.split(/[/\\]/).slice(0, -1).join("/"), { recursive: true });
+          writeFileSync(safePath, f.content, "utf-8");
+          written++;
+        } catch {
+          failed++;
+        }
+      }
+      print(`\n📁 Created ${written} file${written !== 1 ? "s" : ""}${failed > 0 ? ` (${failed} failed)` : ""}: ${files.map(f => f.path).join(", ")}`, "\x1b[36m");
+    }
   } catch (err) {
     if (err.name === "AbortError") {
       print("\n[Stopped]", "\x1b[33m");

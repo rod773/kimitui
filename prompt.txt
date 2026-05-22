@@ -13,6 +13,7 @@ Web chat features:
 - Terminal-style chat interface with streaming responses (NDJSON from Cloudflare API)
 - Messages rendered as: user (> prefixed, green-200), assistant (green-400), system (green-600)
 - Slash commands: /help, /models, /model <name|#>, /info <model>, /read <path>, /write <path> <content>, /edit <path> <old> /with <new>, /delete <path>, /ls <path>, /clear, /stop
+- Auto-creates files from AI responses: when the AI outputs annotated code blocks (```lang // path/to/file or ```lang:path/to/file), files are automatically written to disk after streaming completes
 - After /models, typing a bare number selects that model
 - Esc key to abort streaming (uses AbortController)
 - Model selection persists via localStorage (key: "kimitui-model")
