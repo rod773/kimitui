@@ -50,12 +50,32 @@ export default function Xterm() {
       }
     })();
 
+    let inputBuffer = "";
+
     term.onData((data) => {
-      fetch("/api/terminal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: data }),
-      }).catch(() => {});
+      if (data === "\r") {
+        term.write("\r\n");
+        fetch("/api/terminal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ input: inputBuffer + "\n" }),
+        }).catch(() => {});
+        inputBuffer = "";
+        return;
+      }
+
+      if (data === "\x7f" || data === "\b") {
+        if (inputBuffer.length > 0) {
+          inputBuffer = inputBuffer.slice(0, -1);
+          term.write("\b \b");
+        }
+        return;
+      }
+
+      if (data.length === 1 && data >= " ") {
+        inputBuffer += data;
+        term.write(data);
+      }
     });
 
     const container = containerRef.current;
