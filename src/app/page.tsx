@@ -465,6 +465,12 @@ function InputPrompt({
         ref={inputRef}
         value={input}
         onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit(e);
+          }
+        }}
         disabled={streaming}
         placeholder={
           streaming ? "Streaming in progress..." : "Type a message or /help"
