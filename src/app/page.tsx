@@ -403,6 +403,7 @@ function Header({
         </span>
       </div>
       <div className="flex gap-3 px-4 pb-1.5 text-xs text-green-600">
+        <span>commands:</span>
         {COMMANDS.map((cmd) => (
           <span key={cmd}>{cmd}</span>
         ))}
