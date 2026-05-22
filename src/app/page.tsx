@@ -3,8 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Xterm from "./components/Xterm";
 
+const LANG_MAP: Record<string, string> = {
+  html: "index.html", css: "styles.css", js: "script.js", javascript: "script.js",
+  ts: "script.ts", typescript: "script.ts", tsx: "component.tsx", jsx: "component.jsx",
+  json: "data.json", py: "script.py", python: "script.py", rb: "script.rb",
+  sh: "script.sh", bash: "script.sh", md: "README.md", yaml: "config.yaml", yml: "config.yml",
+  toml: "config.toml", xml: "data.xml", svg: "image.svg", sql: "query.sql",
+  go: "main.go", rs: "main.rs", java: "Main.java", c: "main.c", cpp: "main.cpp",
+  vue: "App.vue", svelte: "App.svelte", php: "index.php",
+};
+
 function extractFiles(text: string): Array<{ path: string; content: string }> {
   const files: Array<{ path: string; content: string }> = [];
+
   const patterns: Array<{ re: RegExp; pi: number; ci: number }> = [
     { re: /```(\w+)\r?\n\s*\/\/\s*(.+?)\r?\n([\s\S]*?)```/g, pi: 2, ci: 3 },
     { re: /```(\w+)\r?\n\s*#\s*(.+?)\r?\n([\s\S]*?)```/g, pi: 2, ci: 3 },
@@ -23,6 +34,20 @@ function extractFiles(text: string): Array<{ path: string; content: string }> {
       }
     }
   }
+
+  if (files.length > 0) return files;
+
+  const bareRe = /```(\w+)\r?\n([\s\S]*?)```/g;
+  let match;
+  while ((match = bareRe.exec(text)) !== null) {
+    const lang = match[1].toLowerCase();
+    const content = match[2].trimEnd();
+    const path = LANG_MAP[lang];
+    if (path && content && !files.some(f => f.path === path)) {
+      files.push({ path, content });
+    }
+  }
+
   return files;
 }
 

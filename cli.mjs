@@ -54,8 +54,20 @@ function sanitizePath(userPath) {
   return resolved;
 }
 
+const LANG_MAP = {
+  html: "index.html", css: "styles.css", js: "script.js", javascript: "script.js",
+  ts: "script.ts", typescript: "script.ts", tsx: "component.tsx", jsx: "component.jsx",
+  json: "data.json", py: "script.py", python: "script.py", rb: "script.rb",
+  sh: "script.sh", bash: "script.sh", md: "README.md", yaml: "config.yaml", yml: "config.yml",
+  toml: "config.toml", xml: "data.xml", svg: "image.svg", sql: "query.sql",
+  go: "main.go", rs: "main.rs", java: "Main.java", c: "main.c", cpp: "main.cpp",
+  vue: "App.vue", svelte: "App.svelte", php: "index.php",
+};
+
 function extractFiles(text) {
   const files = [];
+
+  // First pass: find annotated code blocks with explicit paths
   const patterns = [
     { re: /```(\w+)\r?\n\s*\/\/\s*(.+?)\r?\n([\s\S]*?)```/g, pi: 2, ci: 3 },
     { re: /```(\w+)\r?\n\s*#\s*(.+?)\r?\n([\s\S]*?)```/g, pi: 2, ci: 3 },
@@ -74,6 +86,21 @@ function extractFiles(text) {
       }
     }
   }
+
+  if (files.length > 0) return files;
+
+  // Fallback: bare code blocks with language hint -> map to filename
+  const bareRe = /```(\w+)\r?\n([\s\S]*?)```/g;
+  let match;
+  while ((match = bareRe.exec(text)) !== null) {
+    const lang = match[1].toLowerCase();
+    const content = match[2].trimEnd();
+    const path = LANG_MAP[lang];
+    if (path && content && !files.some(f => f.path === path)) {
+      files.push({ path, content });
+    }
+  }
+
   return files;
 }
 
