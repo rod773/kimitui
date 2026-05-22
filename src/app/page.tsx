@@ -368,6 +368,15 @@ export default function Home() {
   );
 }
 
+const COMMANDS = [
+  "/help",
+  "/models",
+  "/model",
+  "/info",
+  "/clear",
+  "/stop",
+];
+
 function Header({
   currentModel,
   streaming,
@@ -376,22 +385,29 @@ function Header({
   streaming: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2 border-b border-green-700 bg-black text-green-300 text-sm">
-      <span className="font-bold text-green-400">kimitui v0.1</span>
-      <span className="flex items-center gap-2">
-        <span>
-          Model:{" "}
-          <span className="text-green-200">
-            {currentModel || "Not selected"}
+    <div className="flex flex-col border-b border-green-700 bg-black text-green-300 text-sm">
+      <div className="flex items-center justify-between px-4 py-2">
+        <span className="font-bold text-green-400">kimitui v0.1</span>
+        <span className="flex items-center gap-2">
+          <span>
+            Model:{" "}
+            <span className="text-green-200">
+              {currentModel || "Not selected"}
+            </span>
           </span>
+          {streaming && (
+            <span className="inline-flex items-center gap-1 text-green-500">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Thinking...
+            </span>
+          )}
         </span>
-        {streaming && (
-          <span className="inline-flex items-center gap-1 text-green-500">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            Thinking...
-          </span>
-        )}
-      </span>
+      </div>
+      <div className="flex gap-3 px-4 pb-1.5 text-xs text-green-600">
+        {COMMANDS.map((cmd) => (
+          <span key={cmd}>{cmd}</span>
+        ))}
+      </div>
     </div>
   );
 }
