@@ -1,65 +1,456 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+type Message = {
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+
+type ModelInfo = {
+  id: string;
+  author: string;
+  pipeline_tag: string;
+  private: boolean;
+  downloads: number;
+  likes: number;
+};
 
 export default function Home() {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: "system", content: "Welcome to kimitui. Type /help for available commands." },
+  ]);
+  const [input, setInput] = useState("");
+  const [currentModel, setCurrentModel] = useState<string | null>(null);
+  const [streaming, setStreaming] = useState(false);
+  const [modelsList, setModelsList] = useState<string[]>([]);
+  const [pendingModelSelect, setPendingModelSelect] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("kimitui-model");
+    if (saved) setCurrentModel(saved);
+  }, []);
+
+  useEffect(() => {
+    if (currentModel) localStorage.setItem("kimitui-model", currentModel);
+  }, [currentModel]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const addMessage = useCallback((msg: Message) => {
+    setMessages((prev) => [...prev, msg]);
+  }, []);
+
+  const updateLastMessage = useCallback((content: string) => {
+    setMessages((prev) => {
+      const copy = [...prev];
+      if (copy.length > 0) {
+        copy[copy.length - 1] = { ...copy[copy.length - 1], content };
+      }
+      return copy;
+    });
+  }, []);
+
+  const appendToLastMessage = useCallback((chunk: string) => {
+    setMessages((prev) => {
+      const copy = [...prev];
+      if (copy.length > 0) {
+        copy[copy.length - 1] = {
+          ...copy[copy.length - 1],
+          content: copy[copy.length - 1].content + chunk,
+        };
+      }
+      return copy;
+    });
+  }, []);
+
+  const handleStreamChat = useCallback(
+    async (model: string, userMessage: string) => {
+      const abort = new AbortController();
+      abortRef.current = abort;
+      setStreaming(true);
+
+      addMessage({ role: "user", content: userMessage });
+      addMessage({ role: "assistant", content: "" });
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "stream_chat",
+            model,
+            messages: [
+              { role: "user", content: userMessage },
+            ],
+          }),
+          signal: abort.signal,
+        });
+
+        const reader = res.body?.getReader();
+        if (!reader) return;
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.type === "chunk") {
+                appendToLastMessage(parsed.data);
+              } else if (parsed.type === "done") {
+                setStreaming(false);
+              } else if (parsed.type === "error") {
+                updateLastMessage(`Error: ${parsed.message}`);
+                setStreaming(false);
+              }
+            } catch {
+              // skip malformed lines
+            }
+          }
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") {
+          updateLastMessage("\n[Stopped]");
+        } else {
+          updateLastMessage(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+        }
+      } finally {
+        setStreaming(false);
+        abortRef.current = null;
+      }
+    },
+    [addMessage, appendToLastMessage, updateLastMessage]
+  );
+
+  const fetchModels = useCallback(async () => {
+    addMessage({ role: "system", content: "Fetching models..." });
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "list_models" }),
+      });
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+      }
+      const lines = buf.split("\n").filter(Boolean);
+      for (const line of lines) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.type === "result") {
+            const models: string[] = parsed.data;
+            setModelsList(models);
+            setPendingModelSelect(true);
+            const list = models.map((m, i) => `${i + 1}. ${m}`);
+            updateLastMessage(
+              ["Available models:", ...list, "", "Type a number to select, or /model <name>"].join("\n")
+            );
+          } else if (parsed.type === "error") {
+            updateLastMessage(`Error: ${parsed.message}`);
+          }
+        } catch {
+          // skip
+        }
+      }
+    } catch {
+      updateLastMessage("Failed to fetch models.");
+    }
+  }, [addMessage, updateLastMessage]);
+
+  const handleCommand = useCallback(
+    async (cmd: string) => {
+      const parts = cmd.trim().split(/\s+/);
+      const command = parts[0].toLowerCase();
+      const args = parts.slice(1);
+
+      switch (command) {
+        case "/help":
+          addMessage({
+            role: "system",
+            content: [
+              "Available commands:",
+              "  /help           - Show this help",
+              "  /models         - List available models by number",
+              "  /model <name>   - Select a model by name or number",
+              "  /info <model>   - Show model details",
+              "  /clear          - Clear the chat",
+              "  /stop           - Stop streaming",
+              "",
+              `Current model: ${currentModel || "Not selected"}`,
+              "Type any message to chat with the selected model.",
+            ].join("\n"),
+          });
+          break;
+
+        case "/models":
+          await fetchModels();
+          break;
+
+        case "/model":
+          if (args.length === 0) {
+            addMessage({ role: "system", content: "Usage: /model <name> or /model <number>" });
+            break;
+          }
+          selectModel(args.join(" "));
+          break;
+
+        case "/info":
+          if (args.length === 0) {
+            addMessage({ role: "system", content: "Usage: /info <model_name>" });
+            break;
+          }
+          const modelName = args.join(" ");
+          addMessage({ role: "system", content: `Fetching info for ${modelName}...` });
+          try {
+            const res = await fetch("/api/chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "model_info", model: modelName }),
+            });
+            const reader = res.body?.getReader();
+            if (!reader) return;
+            const decoder = new TextDecoder();
+            let buf = "";
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buf += decoder.decode(value, { stream: true });
+            }
+            const lines = buf.split("\n").filter(Boolean);
+            for (const line of lines) {
+              try {
+                const parsed = JSON.parse(line);
+                if (parsed.type === "result") {
+                  const info: ModelInfo = parsed.data;
+                  updateLastMessage(
+                    [
+                      `Model: ${info.id}`,
+                      `Author: ${info.author}`,
+                      `Type: ${info.pipeline_tag}`,
+                      `Private: ${info.private}`,
+                      `Downloads: ${info.downloads}`,
+                      `Likes: ${info.likes}`,
+                    ].join("\n")
+                  );
+                } else if (parsed.type === "error") {
+                  updateLastMessage(`Error: ${parsed.message}`);
+                }
+              } catch {
+                // skip
+              }
+            }
+          } catch {
+            updateLastMessage("Failed to fetch model info.");
+          }
+          break;
+
+        case "/clear":
+          setMessages([{ role: "system", content: "Chat cleared." }]);
+          break;
+
+        case "/stop":
+          if (abortRef.current) {
+            abortRef.current.abort();
+            addMessage({ role: "system", content: "Streaming stopped." });
+          } else {
+            addMessage({ role: "system", content: "No active stream to stop." });
+          }
+          break;
+
+        default:
+          addMessage({ role: "system", content: `Unknown command: ${command}. Type /help for available commands.` });
+      }
+    },
+    [addMessage, updateLastMessage, currentModel, fetchModels]
+  );
+
+  const selectModel = useCallback(
+    (value: string) => {
+      const num = parseInt(value, 10);
+      if (!isNaN(num) && num > 0 && num <= modelsList.length) {
+        const m = modelsList[num - 1];
+        setCurrentModel(m);
+        setPendingModelSelect(false);
+        addMessage({ role: "system", content: `Selected model: ${m}` });
+      } else {
+        setCurrentModel(value);
+        setPendingModelSelect(false);
+        addMessage({ role: "system", content: `Selected model: ${value}` });
+      }
+    },
+    [modelsList, addMessage]
+  );
+
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      const trimmed = input.trim();
+      if (!trimmed || streaming) return;
+
+      setInput("");
+
+      if (trimmed.startsWith("/")) {
+        await handleCommand(trimmed);
+        return;
+      }
+
+      const num = parseInt(trimmed, 10);
+      if (pendingModelSelect && !isNaN(num) && num > 0 && num <= modelsList.length) {
+        selectModel(trimmed);
+        return;
+      }
+
+      if (currentModel) {
+        await handleStreamChat(currentModel, trimmed);
+      } else {
+        addMessage({
+          role: "system",
+          content: "No model selected. Use /models to list and /model <name> to select one.",
+        });
+      }
+    },
+    [input, streaming, currentModel, pendingModelSelect, modelsList, handleCommand, handleStreamChat, addMessage, selectModel]
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && abortRef.current) {
+        abortRef.current.abort();
+        addMessage({ role: "system", content: "Streaming stopped." });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [addMessage]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="flex flex-col h-screen bg-black text-green-400 font-mono">
+      <Header currentModel={currentModel} streaming={streaming} />
+      <ChatArea messages={messages} chatEndRef={chatEndRef} />
+      <InputPrompt
+        input={input}
+        setInput={setInput}
+        handleSubmit={handleSubmit}
+        streaming={streaming}
+        inputRef={inputRef}
+      />
     </div>
+  );
+}
+
+function Header({
+  currentModel,
+  streaming,
+}: {
+  currentModel: string | null;
+  streaming: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between px-4 py-2 border-b border-green-700 bg-black text-green-300 text-sm">
+      <span className="font-bold text-green-400">kimitui v0.1</span>
+      <span className="flex items-center gap-2">
+        <span>
+          Model:{" "}
+          <span className="text-green-200">
+            {currentModel || "Not selected"}
+          </span>
+        </span>
+        {streaming && (
+          <span className="inline-flex items-center gap-1 text-green-500">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            Thinking...
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function ChatArea({
+  messages,
+  chatEndRef,
+}: {
+  messages: Message[];
+  chatEndRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      {messages.map((msg, i) => (
+        <div key={i} className="whitespace-pre-wrap break-words">
+          {msg.role === "user" && (
+            <span>
+              <span className="text-green-300 font-bold">{"> "}</span>
+              <span className="text-green-200">{msg.content}</span>
+            </span>
+          )}
+          {msg.role === "assistant" && (
+            <span className="text-green-400">{msg.content}</span>
+          )}
+          {msg.role === "system" && (
+            <span className="text-green-600">{msg.content}</span>
+          )}
+        </div>
+      ))}
+      <div ref={chatEndRef} />
+    </div>
+  );
+}
+
+function InputPrompt({
+  input,
+  setInput,
+  handleSubmit,
+  streaming,
+  inputRef,
+}: {
+  input: string;
+  setInput: (v: string) => void;
+  handleSubmit: (e: React.FormEvent) => void;
+  streaming: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="flex items-center gap-2 px-4 py-3 border-t border-green-700 bg-black"
+    >
+      <span className="text-green-300 font-bold">{">"}</span>
+      <input
+        ref={inputRef}
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        disabled={streaming}
+        placeholder={
+          streaming ? "Streaming in progress..." : "Type a message or /help"
+        }
+        className="flex-1 bg-black text-green-400 border-none outline-none placeholder-green-800 font-mono"
+      />
+    </form>
   );
 }

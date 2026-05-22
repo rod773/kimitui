@@ -1,0 +1,19 @@
+Create a web-based terminal interface called "kimitui" that lets users chat with kiwi models on 
+width cloudfare workers ai through a browser.
+The UI should look and feel like a terminal — dark background, green monospace text, a scrolling chat area, and an input prompt at the bottom.
+
+Technical stack:
+- Frontend: Next.js 16 (App Router) with Tailwind CSS 
+- Use yarn
+- Backend: Python script that calls Hugging Face `InferenceClient` using the cloudfare workers api in the .env file
+- Communication: Next.js API routes spawn the Python script and pipe JSON over stdin/stdout
+
+Features:
+- Terminal-style chat interface with streaming responses
+- Slash commands: /help, /models (list + select by number), /model <name>, /info <model>, /clear, /stop
+- Esc key to abort streaming
+- Model selection persists via localStorage
+- Header bar showing current model name and thinking indicator
+- Model list shows numbered entries, bare number input after /models selects that model
+
+The Python bridge handles: list_families, list_models, model_info, chat, stream_chat — all via JSON lines protocol over stdin/stdout.
