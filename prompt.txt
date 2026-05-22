@@ -1,10 +1,11 @@
-Create a web-based terminal interface called "kimitui" that lets users chat with AI models on Cloudflare Workers AI through a browser.
+Create a web-based terminal interface called "kimitui" that lets users chat with AI models on Cloudflare Workers AI through a browser, with an integrated xterm.js terminal for modifying the project locally.
 The UI looks and feels like a terminal — dark background, green monospace text, a scrolling chat area, and an input prompt at the bottom.
 
 Technical stack:
 - Frontend: Next.js 16 (App Router) with Tailwind CSS
 - Package manager: yarn
 - Backend: Next.js API routes call Cloudflare Workers AI API (OpenAI-compatible) directly via fetch
+- Terminal: @xterm/xterm with @xterm/addon-fit for local shell access
 - Env vars: CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in .env
 
 Features:
@@ -12,7 +13,11 @@ Features:
 - Slash commands: /help, /models (list + select by number), /model <name>, /info <model>, /clear, /stop
 - Esc key to abort streaming
 - Model selection persists via localStorage
-- Header bar showing current model name and thinking indicator
+- Header bar showing current model name, thinking indicator, and [term] toggle button
 - Model list shows numbered entries, bare number input after /models selects that model
+- Built-in xterm.js terminal (toggle with [term] button) for running shell commands in the project directory
+- Terminal auto-detects project root, features local echo with $ prompt, supports backspace and line-buffered input
+- Terminal spawns cmd.exe (Windows) or bash (Linux/Mac) via child_process — only works locally, not on Vercel
 
 API actions (handled by src/app/api/chat/route.ts): list_families, list_models, model_info, chat, stream_chat — all via NDJSON responses.
+Terminal API (src/app/api/terminal/route.ts): GET (SSE stream), POST (send input), DELETE (kill shell), OPTIONS (get server CWD).

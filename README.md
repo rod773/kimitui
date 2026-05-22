@@ -1,11 +1,12 @@
 # kimitui
 
-Terminal-style web interface for chatting with AI models via **Cloudflare Workers AI**. Dark background, green monospace text, streaming responses — feels like a terminal.
+Terminal-style web interface for chatting with AI models via **Cloudflare Workers AI**, with an integrated xterm.js terminal for local project modification. Dark background, green monospace text, streaming responses — feels like a terminal.
 
 ## Stack
 
 - **Frontend:** Next.js 16 (App Router) + Tailwind CSS + TypeScript
 - **Backend:** Next.js API routes call Cloudflare Workers AI API (OpenAI-compatible) directly via `fetch`
+- **Terminal:** [@xterm/xterm](https://www.npmjs.com/package/@xterm/xterm) with [@xterm/addon-fit](https://www.npmjs.com/package/@xterm/addon-fit)
 - **Package manager:** yarn
 
 ## Requirements
@@ -45,19 +46,38 @@ Open [http://localhost:3000](http://localhost:3000).
 
 After running `/models`, just type a number to select that model.
 
+## Terminal Mode
+
+Click `[term]` in the header to toggle between chat and a built-in xterm.js terminal. The terminal:
+
+- Auto-detects the project root directory and pre-fills it as the working directory
+- Spawns `cmd.exe` (Windows) or `/bin/bash` (Linux/Mac) via `child_process.spawn`
+- Features local echo with a `$ ` prompt, backspace support, and line-buffered input
+- **Only works locally** — requires `yarn dev` on localhost
+
 ## Features
 
 - Streaming responses via Server-Sent Events (SSE)
 - Esc key to abort streaming
 - Model selection persists in `localStorage`
 - Default model: `@cf/moonshotai/kimi-k2.5`
-- Header bar with model name, thinking indicator, and command list
+- Header bar with model name, thinking indicator, and [term] toggle
+- Built-in terminal for running shell commands in the project
 
 ## API
 
-All requests go through `POST /api/chat` with NDJSON responses.
+### Chat (`POST /api/chat`)
 
-Actions: `list_families`, `list_models`, `model_info`, `chat`, `stream_chat`.
+NDJSON responses. Actions: `list_families`, `list_models`, `model_info`, `chat`, `stream_chat`.
+
+### Terminal (`/api/terminal`)
+
+| Method | Description |
+|---|---|
+| `GET` | SSE stream of shell stdout/stderr |
+| `POST` | Send line-buffered input to shell stdin |
+| `DELETE` | Kill the shell process |
+| `OPTIONS` | Returns `{ cwd }` — the server's project root |
 
 ## Deployment
 
@@ -66,3 +86,5 @@ vercel --prod
 ```
 
 Set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as environment variables in the Vercel project settings.
+
+> Note: The integrated terminal only works locally. Chat and AI features work on Vercel.
