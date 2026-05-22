@@ -457,7 +457,7 @@ function InputPrompt({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex items-start gap-2 px-4 pt-3 pb-6 border-t border-green-700 bg-black"
+      className="flex items-start gap-2 px-4 pt-3 pb-12 border-t border-green-700 bg-black"
     >
       <span className="text-green-300 font-bold mt-2">{">"}</span>
       <textarea
