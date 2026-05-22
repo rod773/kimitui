@@ -30,7 +30,6 @@ export default function Xterm() {
     term.loadAddon(fit);
     term.open(containerRef.current);
     term.focus();
-    setStatus("starting");
 
     let aborted = false;
 
@@ -86,23 +85,31 @@ export default function Xterm() {
     );
   }
 
+  const handleStart = () => {
+    setStatus("starting");
+    setReady(true);
+  };
+
   if (status === "dir") {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
-        <p className="text-green-600 text-sm">Enter working directory or leave empty for project root</p>
-        <input
-          type="text"
-          value={cwd}
-          onChange={(e) => setCwd(e.target.value)}
-          placeholder="e.g. C:\Users\yourname\projects or ~/code"
-          className="w-full max-w-xl bg-black border border-green-700 text-green-400 px-3 py-2 font-mono text-sm outline-none focus:border-green-400"
-        />
-        <button
-          onClick={() => setReady(true)}
-          className="border border-green-500 text-green-400 px-4 py-1 text-sm hover:bg-green-900"
-        >
-          Start Terminal
-        </button>
+      <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
+          <p className="text-green-600 text-sm">Enter working directory or leave empty for project root</p>
+          <input
+            type="text"
+            value={cwd}
+            onChange={(e) => setCwd(e.target.value)}
+            placeholder="e.g. C:\Users\yourname\projects or ~/code"
+            className="w-full max-w-xl bg-black border border-green-700 text-green-400 px-3 py-2 font-mono text-sm outline-none focus:border-green-400"
+          />
+          <button
+            onClick={handleStart}
+            className="border border-green-500 text-green-400 px-4 py-1 text-sm hover:bg-green-900"
+          >
+            Start Terminal
+          </button>
+        </div>
+        <div ref={containerRef} className="hidden" />
       </div>
     );
   }
