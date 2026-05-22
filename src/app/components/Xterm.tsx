@@ -16,6 +16,13 @@ export default function Xterm() {
     (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
   useEffect(() => {
+    fetch("/api/terminal", { method: "OPTIONS" })
+      .then((r) => r.json())
+      .then((data) => { if (data.cwd) setCwd(data.cwd); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!ready || !containerRef.current) return;
 
     const term = new Terminal({
@@ -40,10 +47,16 @@ export default function Xterm() {
         setStatus("active");
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
+        let firstChunk = true;
         while (true) {
           const { done, value } = await reader.read();
           if (done || aborted) break;
-          term.write(decoder.decode(value, { stream: true }));
+          const text = decoder.decode(value, { stream: true });
+          term.write(text);
+          if (firstChunk) {
+            term.write("$ ");
+            firstChunk = false;
+          }
         }
       } catch {
         if (!aborted) setStatus("error");
@@ -51,6 +64,7 @@ export default function Xterm() {
     })();
 
     let inputBuffer = "";
+    let needsPrompt = true;
 
     term.onData((data) => {
       if (data === "\r") {
@@ -61,7 +75,14 @@ export default function Xterm() {
           body: JSON.stringify({ input: inputBuffer + "\n" }),
         }).catch(() => {});
         inputBuffer = "";
+        needsPrompt = true;
         return;
+      }
+
+      if (needsPrompt) {
+        term.write("$ ");
+        needsPrompt = false;
+        if (data === "\x7f" || data === "\b") return;
       }
 
       if (data === "\x7f" || data === "\b") {

@@ -87,3 +87,7 @@ export async function DELETE() {
   outputControllers = [];
   return new Response("ok");
 }
+
+export async function OPTIONS() {
+  return Response.json({ cwd: process.cwd() });
+}
