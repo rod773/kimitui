@@ -33,7 +33,10 @@ export default function Home() {
 
   useEffect(() => {
     const saved = localStorage.getItem("kimitui-model");
-    setCurrentModel(saved || DEFAULT_MODEL);
+    if (saved && saved !== DEFAULT_MODEL) {
+      localStorage.removeItem("kimitui-model");
+    }
+    setCurrentModel(DEFAULT_MODEL);
   }, []);
 
   useEffect(() => {
