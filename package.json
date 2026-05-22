@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "terminal": "node cli.mjs"
+    "terminal": "node cli.mjs",
+    "build:cli": "esbuild cli.mjs --bundle --platform=node --outfile=.build/cli.cjs && pkg .build/cli.cjs --targets node18-win-x64 --output bin/kimitui && node -e \"require('fs').rmSync('.build',{recursive:true,force:true})\""
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
@@ -22,8 +23,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "^0.28.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "pkg": "^5.8.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

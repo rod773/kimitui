@@ -1,24 +1,69 @@
-Create a web-based terminal interface called "kimitui" that lets users chat with AI models on Cloudflare Workers AI through a browser, with an integrated xterm.js terminal for modifying the project locally.
-The UI looks and feels like a terminal — dark background, green monospace text, a scrolling chat area, and an input prompt at the bottom.
+Create a web-based terminal interface called "kimitui" that lets users chat with AI models on Cloudflare Workers AI through a browser, with an integrated xterm.js terminal for modifying the project locally. The UI looks and feels like a terminal — dark background, green monospace text, a scrolling chat area, and an input prompt at the bottom.
 
 Technical stack:
-- Frontend: Next.js 16 (App Router) with Tailwind CSS
+- Frontend: Next.js 16.2.6 (App Router) with Tailwind CSS v4 and TypeScript
 - Package manager: yarn
 - Backend: Next.js API routes call Cloudflare Workers AI API (OpenAI-compatible) directly via fetch
-- Terminal: @xterm/xterm with @xterm/addon-fit for local shell access
+- Terminal: @xterm/xterm 6.0 with @xterm/addon-fit 0.11 for local shell access
 - Env vars: CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in .env
+- Linting: ESLint 9 with eslint-config-next (core-web-vitals + typescript)
+- CSS: Tailwind CSS v4 via @tailwindcss/postcss
 
-Features:
-- Terminal-style chat interface with streaming responses (SSE from Cloudflare API)
-- Slash commands: /help, /models (list + select by number), /model <name>, /info <model>, /clear, /stop
-- Esc key to abort streaming
-- Model selection persists via localStorage
-- Header bar showing current model name, thinking indicator, and [term] toggle button
-- Model list shows numbered entries, bare number input after /models selects that model
-- Built-in xterm.js terminal (toggle with [term] button) for running shell commands in the project directory
-- Terminal auto-detects project root, features local echo with $ prompt, supports backspace and line-buffered input
-- Terminal spawns cmd.exe (Windows) or bash (Linux/Mac) via child_process — only works locally, not on Vercel
-- CLI mode: run `yarn terminal` for a native terminal chat experience (no browser needed) — reads .env directly, uses readline for input
+Web chat features:
+- Terminal-style chat interface with streaming responses (NDJSON from Cloudflare API)
+- Messages rendered as: user (> prefixed, green-200), assistant (green-400), system (green-600)
+- Slash commands: /help, /models (list + select by number), /model <name|#>, /info <model>, /clear, /stop
+- After /models, typing a bare number selects that model
+- Esc key to abort streaming (uses AbortController)
+- Model selection persists via localStorage (key: "kimitui-model")
+- "Thinking..." placeholder while streaming
+- Header bar: "kimitui v0.1", current model name, [term] toggle button, pulsing thinking indicator
+- Commands help bar below header with all available commands listed
+- InputPrompt with textarea (Enter to submit, Shift+Enter for newline)
+- Custom scrollbar (green thumb on black track) and green selection styling
+- Default model: @cf/moonshotai/kimi-k2.5
 
-API actions (handled by src/app/api/chat/route.ts): list_families, list_models, model_info, chat, stream_chat — all via NDJSON responses.
-Terminal API (src/app/api/terminal/route.ts): GET (SSE stream), POST (send input), DELETE (kill shell), OPTIONS (get server CWD).
+xterm.js integrated terminal:
+- Toggle between chat/terminal mode with [term] button in header
+- Before starting: shows working directory input (auto-detected via OPTIONS /api/terminal)
+- Local echo with $ prompt, backspace support, line-buffered input
+- Spawns cmd.exe (Windows) or /bin/bash (Linux/Mac) via child_process.spawn
+- Only works locally (localhost/127.0.0.1), shows explanation message on Vercel
+- Status bar: "Connecting...", "Terminal — <cwd>", "Connection failed"
+- Auto-focus, click-to-focus, resize handling via FitAddon
+- Custom theme: black background, #00ff41 green foreground/cursor
+
+API routes:
+- POST /api/chat (src/app/api/chat/route.ts): NDJSON responses
+  - Actions: list_families (grouped by model family), list_models (optionally filtered by family, max 50), model_info, chat (non-streaming), stream_chat (SSE relay from Cloudflare)
+  - Cloudflare API base: https://api.cloudflare.com/client/v4/accounts/{id}/ai
+  - Text generation models filtered by task ID: c329a1f9-323d-4e91-b2aa-582dd4188d34
+- /api/terminal (src/app/api/terminal/route.ts):
+  - GET: SSE stream of shell stdout/stderr
+  - POST: send line-buffered input to shell stdin
+  - DELETE: kill shell process
+  - OPTIONS: returns { cwd } — server's project root
+
+Python bridge (python/bridge.py):
+- Python implementation using httpx and python-dotenv
+- Reads JSON commands from stdin, sends NDJSON responses to stdout
+- Same actions: list_families, list_models, model_info, chat, stream_chat
+- Helper functions: model_family (extracts provider from model name), model_short_name
+- Requires: httpx, python-dotenv
+
+CLI mode:
+- Run `yarn terminal` (cli.mjs) for native terminal chat (no browser needed)
+- Reads .env from project root or home directory
+- Uses readline for input, colorized output (green $ prompt, cyan system, yellow streaming)
+- Supports all same slash commands with AbortController for stream stop
+- Default model: @cf/moonshotai/kimi-k2.5
+
+Build & distribution:
+- yarn build:cli: esbuild bundles cli.mjs, pkg compiles to standalone Windows .exe
+- kimitui.bat: launcher batch file for bin/kimitui.exe
+- bin/kimitui.exe: pre-built standalone executable
+
+Deployment:
+- Vercel-ready (vercel --prod), linked project in .vercel/project.json
+- Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in Vercel env vars
+- Terminal mode disabled on Vercel (localhost only)
