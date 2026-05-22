@@ -56,15 +56,20 @@ function sanitizePath(userPath) {
 
 function extractFiles(text) {
   const files = [];
-  const blockRegex = /```(\w+)\n\s*\/\/\s*(.+?)\n([\s\S]*?)```/g;
-  const hashRegex = /```(\w+)\n\s*#\s*(.+?)\n([\s\S]*?)```/g;
-  const colonRegex = /```(\w+):(.+?)\n([\s\S]*?)```/g;
-  for (const regex of [blockRegex, hashRegex, colonRegex]) {
+  const patterns = [
+    { re: /```(\w+)\r?\n\s*\/\/\s*(.+?)\r?\n([\s\S]*?)```/g, pi: 2, ci: 3 },
+    { re: /```(\w+)\r?\n\s*#\s*(.+?)\r?\n([\s\S]*?)```/g, pi: 2, ci: 3 },
+    { re: /```(\w+):(.+?)\r?\n([\s\S]*?)```/g, pi: 2, ci: 3 },
+    { re: /```(\w+)\r?\n\s*\/\*\s*(.+?)\s*\*\/\r?\n([\s\S]*?)```/g, pi: 2, ci: 3 },
+    { re: /```\r?\n\s*\/\/\s*(.+?)\r?\n([\s\S]*?)```/g, pi: 1, ci: 2 },
+    { re: /```\r?\n\s*#\s*(.+?)\r?\n([\s\S]*?)```/g, pi: 1, ci: 2 },
+  ];
+  for (const { re, pi, ci } of patterns) {
     let match;
-    while ((match = regex.exec(text)) !== null) {
-      const path = match[2].trim();
-      const content = match[3].trimEnd();
-      if (path && content) {
+    while ((match = re.exec(text)) !== null) {
+      const path = match[pi].trim();
+      const content = match[ci].trimEnd();
+      if (path && content && /[/\\]/.test(path) && !files.some(f => f.path === path)) {
         files.push({ path, content });
       }
     }
