@@ -18,6 +18,7 @@ Features:
 - Built-in xterm.js terminal (toggle with [term] button) for running shell commands in the project directory
 - Terminal auto-detects project root, features local echo with $ prompt, supports backspace and line-buffered input
 - Terminal spawns cmd.exe (Windows) or bash (Linux/Mac) via child_process — only works locally, not on Vercel
+- CLI mode: run `yarn terminal` for a native terminal chat experience (no browser needed) — reads .env directly, uses readline for input
 
 API actions (handled by src/app/api/chat/route.ts): list_families, list_models, model_info, chat, stream_chat — all via NDJSON responses.
 Terminal API (src/app/api/terminal/route.ts): GET (SSE stream), POST (send input), DELETE (kill shell), OPTIONS (get server CWD).

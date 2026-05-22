@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "terminal": "start http://localhost:3000"
+    "terminal": "node cli.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

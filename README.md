@@ -88,3 +88,11 @@ vercel --prod
 Set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as environment variables in the Vercel project settings.
 
 > Note: The integrated terminal only works locally. Chat and AI features work on Vercel.
+
+## CLI Mode
+
+```bash
+yarn terminal
+```
+
+Launches a native terminal chat interface (no browser needed) that connects directly to Cloudflare Workers AI. Reads credentials from `.env` in the project root or home directory. Supports all the same slash commands. Good for quick sessions without starting the dev server.
