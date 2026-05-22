@@ -53,6 +53,10 @@ export default function Home() {
     inputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    if (!streaming) inputRef.current?.focus();
+  }, [streaming]);
+
   const addMessage = useCallback((msg: Message) => {
     setMessages((prev) => [...prev, msg]);
   }, []);
