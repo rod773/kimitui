@@ -387,14 +387,13 @@ function Header({
   return (
     <div className="flex flex-col border-b border-green-700 bg-black text-green-300 text-sm">
       <div className="flex items-center justify-between px-4 py-2">
-        <span className="font-bold text-green-400">kimitui v0.1</span>
-        <span className="flex items-center gap-2">
-          <span>
-            Model:{" "}
-            <span className="text-green-200">
-              {currentModel || "Not selected"}
-            </span>
+        <span className="flex items-center gap-3">
+          <span className="font-bold text-green-400">kimitui v0.1</span>
+          <span className="text-green-200 font-bold">
+            {currentModel || "No model selected"}
           </span>
+        </span>
+        <span className="flex items-center gap-2">
           {streaming && (
             <span className="inline-flex items-center gap-1 text-green-500">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
