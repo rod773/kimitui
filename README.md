@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# kimitui
 
-## Getting Started
+Terminal-style web interface for chatting with AI models via **Cloudflare Workers AI**. Dark background, green monospace text, streaming responses — feels like a terminal.
 
-First, run the development server:
+## Stack
+
+- **Frontend:** Next.js 16 (App Router) + Tailwind CSS + TypeScript
+- **Backend:** Next.js API routes call Cloudflare Workers AI API (OpenAI-compatible) directly via `fetch`
+- **Package manager:** yarn
+
+## Requirements
+
+- Node.js 20.9+
+- A [Cloudflare](https://cloudflare.com) account with Workers AI enabled
+- `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`
+
+## Setup
 
 ```bash
-npm run dev
-# or
+# 1. Clone and install
+git clone https://github.com/rod773/kimitui
+cd kimitui
+yarn install
+
+# 2. Create .env with your Cloudflare credentials
+cp .env_example .env
+# Edit .env and fill in your CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN
+
+# 3. Run dev server
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---|---|
+| `/help` | Show all available commands |
+| `/models` | List available models with numbers |
+| `/model <name or #>` | Select a model by name or number |
+| `/info <model>` | Show model details |
+| `/clear` | Clear the chat |
+| `/stop` | Stop streaming response (also `Esc` key) |
 
-## Learn More
+After running `/models`, just type a number to select that model.
 
-To learn more about Next.js, take a look at the following resources:
+## Features
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Streaming responses via Server-Sent Events (SSE)
+- Esc key to abort streaming
+- Model selection persists in `localStorage`
+- Default model: `@cf/moonshotai/kimi-k2.5`
+- Header bar with model name, thinking indicator, and command list
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API
 
-## Deploy on Vercel
+All requests go through `POST /api/chat` with NDJSON responses.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Actions: `list_families`, `list_models`, `model_info`, `chat`, `stream_chat`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+```bash
+vercel --prod
+```
+
+Set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` as environment variables in the Vercel project settings.
