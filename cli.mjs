@@ -1,7 +1,7 @@
 import { createInterface } from "readline";
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync, statSync } from "fs";
 import { homedir } from "os";
-import { join } from "path";
+import { join, relative, isAbsolute, normalize } from "path";
 
 function loadEnv() {
   const paths = [join(process.cwd(), ".env"), join(homedir(), ".env")];
@@ -40,6 +40,19 @@ let pendingModelSelect = false;
 let messages = [{ role: "system", content: "Welcome to kimitui CLI. Type /help for commands." }];
 let streaming = false;
 let abortController = null;
+
+const PROJECT_ROOT = process.cwd();
+
+function sanitizePath(userPath) {
+  const resolved = isAbsolute(userPath)
+    ? normalize(userPath)
+    : join(PROJECT_ROOT, normalize(userPath));
+  const rel = relative(PROJECT_ROOT, resolved);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error("Path is outside project root");
+  }
+  return resolved;
+}
 
 function print(msg, color = "") {
   console.log(color + msg + "\x1b[0m");
@@ -139,6 +152,11 @@ async function handleCommand(cmd) {
         "  /models         List available models by number",
         "  /model <name>   Select a model by name or number",
         "  /info <model>   Show model details",
+        "  /read <path>    Read a file from the project",
+        "  /write <path> <content>  Write content to a file",
+        "  /edit <path> <old> /with <new>  Replace text in a file",
+        "  /delete <path>  Delete a file",
+        "  /ls <path>      List directory contents",
         "  /clear          Clear the chat",
         "  /stop           Stop streaming",
         "",
@@ -170,6 +188,78 @@ async function handleCommand(cmd) {
         print(`Task: ${found.task?.name || "text-generation"}`, "\x1b[36m");
       } catch (err) {
         print(`Failed: ${err.message}`, "\x1b[31m");
+      }
+      break;
+    }
+
+    case "/read": {
+      if (args.length === 0) { print("Usage: /read <path>", "\x1b[36m"); break; }
+      try {
+        const safePath = sanitizePath(args[0]);
+        const data = readFileSync(safePath, "utf-8");
+        print(`--- ${args[0]} ---`, "\x1b[36m");
+        console.log(data);
+        print(`--- end ---`, "\x1b[36m");
+      } catch (err) {
+        print(`Error: ${err.message}`, "\x1b[31m");
+      }
+      break;
+    }
+
+    case "/write": {
+      if (args.length < 2) { print("Usage: /write <path> <content>", "\x1b[36m"); break; }
+      try {
+        const safePath = sanitizePath(args[0]);
+        const content = args.slice(1).join(" ");
+        mkdirSync(safePath.split(/[/\\]/).slice(0, -1).join("/"), { recursive: true });
+        writeFileSync(safePath, content, "utf-8");
+        print(`Written ${args[0]}`, "\x1b[36m");
+      } catch (err) {
+        print(`Error: ${err.message}`, "\x1b[31m");
+      }
+      break;
+    }
+
+    case "/edit": {
+      if (args.length < 2) { print("Usage: /edit <path> <oldString> /with <newString>", "\x1b[36m"); break; }
+      const sep = args.indexOf("/with");
+      if (sep === -1) { print("Usage: /edit <path> <oldString> /with <newString>", "\x1b[36m"); break; }
+      try {
+        const safePath = sanitizePath(args[0]);
+        const oldStr = args.slice(1, sep).join(" ");
+        const newStr = args.slice(sep + 1).join(" ");
+        const data = readFileSync(safePath, "utf-8");
+        if (!data.includes(oldStr)) { print("oldString not found in file", "\x1b[31m"); break; }
+        writeFileSync(safePath, data.replace(oldStr, newStr), "utf-8");
+        print(`Edited ${args[0]}`, "\x1b[36m");
+      } catch (err) {
+        print(`Error: ${err.message}`, "\x1b[31m");
+      }
+      break;
+    }
+
+    case "/delete":
+      if (args.length === 0) { print("Usage: /delete <path>", "\x1b[36m"); break; }
+      try {
+        unlinkSync(sanitizePath(args[0]));
+        print(`Deleted ${args[0]}`, "\x1b[36m");
+      } catch (err) {
+        print(`Error: ${err.message}`, "\x1b[31m");
+      }
+      break;
+
+    case "/ls": {
+      if (args.length === 0) { print("Usage: /ls <path>", "\x1b[36m"); break; }
+      try {
+        const safePath = sanitizePath(args[0]);
+        const entries = readdirSync(safePath, { withFileTypes: true });
+        for (const e of entries) {
+          const size = e.isFile() ? ` (${statSync(join(safePath, e.name)).size}B)` : "";
+          const icon = e.isDirectory() ? "📁" : "📄";
+          print(`  ${icon} ${e.name}${size}`, "\x1b[36m");
+        }
+      } catch (err) {
+        print(`Error: ${err.message}`, "\x1b[31m");
       }
       break;
     }

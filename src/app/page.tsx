@@ -208,6 +208,18 @@ export default function Home() {
     [modelsList, addMessage]
   );
 
+  const fsOp = useCallback(
+    async (action: string, body: Record<string, unknown>) => {
+      const res = await fetch("/api/fs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...body }),
+      });
+      return res.json() as Promise<{ type: string; data?: unknown; message?: string }>;
+    },
+    []
+  );
+
   const handleCommand = useCallback(
     async (cmd: string) => {
       const parts = cmd.trim().split(/\s+/);
@@ -224,6 +236,11 @@ export default function Home() {
               "  /models         - List available models by number",
               "  /model <name>   - Select a model by name or number",
               "  /info <model>   - Show model details",
+              "  /read <path>    - Read a file from the project",
+              "  /write <path>   - Write content to a file (multiline, ends with ---)",
+              "  /edit <path>    - Replace text in a file",
+              "  /delete <path>  - Delete a file",
+              "  /ls <path>      - List directory contents",
               "  /clear          - Clear the chat",
               "  /stop           - Stop streaming",
               "",
@@ -295,6 +312,117 @@ export default function Home() {
           }
           break;
 
+        case "/read":
+          if (args.length === 0) {
+            addMessage({ role: "system", content: "Usage: /read <path>" });
+            break;
+          }
+          addMessage({ role: "system", content: `Reading ${args[0]}...` });
+          try {
+            const r = await fsOp("read", { path: args[0] });
+            if (r.type === "result") {
+              updateLastMessage(r.data as string);
+            } else {
+              updateLastMessage(`Error: ${r.message}`);
+            }
+          } catch {
+            updateLastMessage("Failed to read file.");
+          }
+          break;
+
+        case "/write": {
+          if (args.length < 2) {
+            addMessage({ role: "system", content: "Usage: /write <path> <content>" });
+            break;
+          }
+          const path = args[0];
+          const content = args.slice(1).join(" ");
+          addMessage({ role: "system", content: `Writing to ${path}...` });
+          try {
+            const r = await fsOp("write", { path, content });
+            if (r.type === "result") {
+              updateLastMessage(r.message || "File written.");
+            } else {
+              updateLastMessage(`Error: ${r.message}`);
+            }
+          } catch {
+            updateLastMessage("Failed to write file.");
+          }
+          break;
+        }
+
+        case "/edit": {
+          if (args.length < 2) {
+            addMessage({ role: "system", content: "Usage: /edit <path> <oldString> /with <newString>" });
+            break;
+          }
+          const ePath = args[0];
+          const sep = args.indexOf("/with");
+          if (sep === -1) {
+            addMessage({ role: "system", content: "Usage: /edit <path> <oldString> /with <newString>" });
+            break;
+          }
+          const oldStr = args.slice(1, sep).join(" ");
+          const newStr = args.slice(sep + 1).join(" ");
+          addMessage({ role: "system", content: `Editing ${ePath}...` });
+          try {
+            const r = await fsOp("edit", { path: ePath, oldString: oldStr, newString: newStr });
+            if (r.type === "result") {
+              updateLastMessage(r.message || "File edited.");
+            } else {
+              updateLastMessage(`Error: ${r.message}`);
+            }
+          } catch {
+            updateLastMessage("Failed to edit file.");
+          }
+          break;
+        }
+
+        case "/delete":
+          if (args.length === 0) {
+            addMessage({ role: "system", content: "Usage: /delete <path>" });
+            break;
+          }
+          addMessage({ role: "system", content: `Deleting ${args[0]}...` });
+          try {
+            const r = await fsOp("delete", { path: args[0] });
+            if (r.type === "result") {
+              updateLastMessage(r.message || "File deleted.");
+            } else {
+              updateLastMessage(`Error: ${r.message}`);
+            }
+          } catch {
+            updateLastMessage("Failed to delete file.");
+          }
+          break;
+
+        case "/ls":
+          if (args.length === 0) {
+            addMessage({ role: "system", content: "Usage: /ls <path>" });
+            break;
+          }
+          addMessage({ role: "system", content: `Listing ${args[0]}...` });
+          try {
+            const r = await fsOp("ls", { path: args[0] });
+            if (r.type === "result") {
+              const listing = r.data as Array<{ name: string; type: string; size?: number }>;
+              updateLastMessage(
+                listing
+                  .map((e) => {
+                    const icon = e.type === "dir" ? "📁" : "📄";
+                    const sizeStr = e.size !== undefined ? ` (${e.size}B)` : "";
+                    return `  ${icon} ${e.name}${sizeStr}`;
+                  })
+                  .join("\n") || "  (empty)"
+              );
+            } else {
+              updateLastMessage(`Error: ${r.message}`);
+            }
+          } catch {
+            updateLastMessage("Failed to list directory.");
+          }
+          break;
+
         case "/clear":
           setMessages([{ role: "system", content: "Chat cleared." }]);
           break;
@@ -312,7 +440,7 @@ export default function Home() {
           addMessage({ role: "system", content: `Unknown command: ${command}. Type /help for available commands.` });
       }
     },
-    [addMessage, updateLastMessage, currentModel, fetchModels, selectModel]
+    [addMessage, updateLastMessage, currentModel, fetchModels, selectModel, fsOp]
   );
 
   const handleSubmit = useCallback(
@@ -387,6 +515,11 @@ const COMMANDS = [
   "/models",
   "/model",
   "/info",
+  "/read",
+  "/write",
+  "/edit",
+  "/delete",
+  "/ls",
   "/clear",
   "/stop",
 ];

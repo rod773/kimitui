@@ -12,7 +12,7 @@ Technical stack:
 Web chat features:
 - Terminal-style chat interface with streaming responses (NDJSON from Cloudflare API)
 - Messages rendered as: user (> prefixed, green-200), assistant (green-400), system (green-600)
-- Slash commands: /help, /models (list + select by number), /model <name|#>, /info <model>, /clear, /stop
+- Slash commands: /help, /models, /model <name|#>, /info <model>, /read <path>, /write <path> <content>, /edit <path> <old> /with <new>, /delete <path>, /ls <path>, /clear, /stop
 - After /models, typing a bare number selects that model
 - Esc key to abort streaming (uses AbortController)
 - Model selection persists via localStorage (key: "kimitui-model")
@@ -38,6 +38,9 @@ API routes:
   - Actions: list_families (grouped by model family), list_models (optionally filtered by family, max 50), model_info, chat (non-streaming), stream_chat (SSE relay from Cloudflare)
   - Cloudflare API base: https://api.cloudflare.com/client/v4/accounts/{id}/ai
   - Text generation models filtered by task ID: c329a1f9-323d-4e91-b2aa-582dd4188d34
+- POST /api/fs (src/app/api/fs/route.ts): read/write/edit/delete/ls files on the server
+  - Actions: read (returns file content), write (with content body), edit (replace oldString with newString), delete, ls (returns name/type/size listing)
+  - All paths are sanitized — only allows access within project root directory
 - /api/terminal (src/app/api/terminal/route.ts):
   - GET: SSE stream of shell stdout/stderr
   - POST: send line-buffered input to shell stdin
