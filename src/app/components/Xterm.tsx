@@ -36,7 +36,12 @@ export default function Xterm() {
     term.loadAddon(fit);
 
     term.open(containerRef.current);
-    setTimeout(() => fit.fit(), 50);
+    term.focus();
+
+    setTimeout(() => {
+      fit.fit();
+      term.focus();
+    }, 100);
 
     let aborted = false;
 
@@ -60,12 +65,17 @@ export default function Xterm() {
       sendInput(data);
     });
 
+    const onClick = () => term.focus();
+    containerRef.current.addEventListener("click", onClick);
+
     const resize = () => fit.fit();
     window.addEventListener("resize", resize);
 
+    const container = containerRef.current;
     return () => {
       aborted = true;
       window.removeEventListener("resize", resize);
+      if (container) container.removeEventListener("click", onClick);
       term.dispose();
     };
   }, []);

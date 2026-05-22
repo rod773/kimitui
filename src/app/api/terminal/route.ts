@@ -35,12 +35,17 @@ function startShell() {
 export async function GET() {
   startShell();
 
+  let thisController: ReadableStreamDefaultController | null = null;
+
   const stream = new ReadableStream({
     start(controller) {
+      thisController = controller;
       outputControllers.push(controller);
     },
     cancel() {
-      outputControllers = outputControllers.filter((c) => c !== null);
+      if (thisController) {
+        outputControllers = outputControllers.filter((c) => c !== thisController);
+      }
     },
   });
 
