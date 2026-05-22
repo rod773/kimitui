@@ -69,9 +69,10 @@ export default function Home() {
     setMessages((prev) => {
       const copy = [...prev];
       if (copy.length > 0) {
+        const prevContent = copy[copy.length - 1].content;
         copy[copy.length - 1] = {
           ...copy[copy.length - 1],
-          content: copy[copy.length - 1].content + chunk,
+          content: prevContent === "Thinking..." ? chunk : prevContent + chunk,
         };
       }
       return copy;
@@ -85,7 +86,7 @@ export default function Home() {
       setStreaming(true);
 
       addMessage({ role: "user", content: userMessage });
-      addMessage({ role: "assistant", content: "" });
+      addMessage({ role: "assistant", content: "Thinking..." });
 
       try {
         const res = await fetch("/api/chat", {
