@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Xterm from "./components/Xterm";
 
 type Message = {
   role: "user" | "assistant" | "system";
@@ -17,6 +18,7 @@ type ModelInfo = {
 };
 
 export default function Home() {
+  const [mode, setMode] = useState<"chat" | "terminal">("chat");
   const [messages, setMessages] = useState<Message[]>([
     { role: "system", content: "Welcome to kimitui. Type /help for available commands." },
   ]);
@@ -355,15 +357,26 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-black text-green-400 font-mono">
-      <Header currentModel={currentModel} streaming={streaming} />
-      <ChatArea messages={messages} chatEndRef={chatEndRef} />
-      <InputPrompt
-        input={input}
-        setInput={setInput}
-        handleSubmit={handleSubmit}
+      <Header
+        currentModel={currentModel}
         streaming={streaming}
-        inputRef={inputRef}
+        mode={mode}
+        onModeChange={setMode}
       />
+      {mode === "chat" ? (
+        <>
+          <ChatArea messages={messages} chatEndRef={chatEndRef} />
+          <InputPrompt
+            input={input}
+            setInput={setInput}
+            handleSubmit={handleSubmit}
+            streaming={streaming}
+            inputRef={inputRef}
+          />
+        </>
+      ) : (
+        <Xterm />
+      )}
     </div>
   );
 }
@@ -380,20 +393,36 @@ const COMMANDS = [
 function Header({
   currentModel,
   streaming,
+  mode,
+  onModeChange,
 }: {
   currentModel: string | null;
   streaming: boolean;
+  mode: "chat" | "terminal";
+  onModeChange: (m: "chat" | "terminal") => void;
 }) {
   return (
     <div className="flex flex-col border-b border-green-700 bg-black text-green-300 text-sm">
       <div className="flex items-center justify-between px-4 py-2">
         <span className="flex items-center gap-3">
           <span className="font-bold text-green-400">kimitui v0.1</span>
-          <span className="text-green-200 font-bold">
-            {currentModel || "No model selected"}
-          </span>
+          {mode === "chat" && (
+            <span className="text-green-200 font-bold">
+              {currentModel || "No model selected"}
+            </span>
+          )}
         </span>
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-3">
+          <button
+            onClick={() => onModeChange(mode === "chat" ? "terminal" : "chat")}
+            className={`px-2 py-0.5 border text-xs ${
+              mode === "terminal"
+                ? "border-green-400 text-green-400 bg-green-900"
+                : "border-green-700 text-green-600 hover:border-green-500"
+            }`}
+          >
+            [term]
+          </button>
           {streaming && (
             <span className="inline-flex items-center gap-1 text-green-500">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
