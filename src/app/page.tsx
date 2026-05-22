@@ -346,12 +346,11 @@ export default function Home() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && abortRef.current) {
         abortRef.current.abort();
-        addMessage({ role: "system", content: "Streaming stopped." });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [addMessage]);
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-black text-green-400 font-mono">
