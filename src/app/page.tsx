@@ -29,9 +29,11 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  const DEFAULT_MODEL = "@cf/moonshotai/kimi-k2.5";
+
   useEffect(() => {
     const saved = localStorage.getItem("kimitui-model");
-    if (saved) setCurrentModel(saved);
+    setCurrentModel(saved || DEFAULT_MODEL);
   }, []);
 
   useEffect(() => {
