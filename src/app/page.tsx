@@ -18,12 +18,13 @@ type ModelInfo = {
 };
 
 export default function Home() {
+  const DEFAULT_MODEL = "@cf/moonshotai/kimi-k2.5";
   const [mode, setMode] = useState<"chat" | "terminal">("chat");
   const [messages, setMessages] = useState<Message[]>([
     { role: "system", content: "Welcome to kimitui. Type /help for available commands." },
   ]);
   const [input, setInput] = useState("");
-  const [currentModel, setCurrentModel] = useState<string | null>(null);
+  const [currentModel, setCurrentModel] = useState<string>(DEFAULT_MODEL);
   const [streaming, setStreaming] = useState(false);
   const [modelsList, setModelsList] = useState<string[]>([]);
   const [pendingModelSelect, setPendingModelSelect] = useState(false);
@@ -31,14 +32,11 @@ export default function Home() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const DEFAULT_MODEL = "@cf/moonshotai/kimi-k2.5";
-
   useEffect(() => {
     const saved = localStorage.getItem("kimitui-model");
     if (saved && saved !== DEFAULT_MODEL) {
       localStorage.removeItem("kimitui-model");
     }
-    setCurrentModel(DEFAULT_MODEL);
   }, []);
 
   useEffect(() => {
@@ -194,6 +192,23 @@ export default function Home() {
     }
   }, [addMessage, updateLastMessage]);
 
+  const selectModel = useCallback(
+    (value: string) => {
+      const num = parseInt(value, 10);
+      if (!isNaN(num) && num > 0 && num <= modelsList.length) {
+        const m = modelsList[num - 1];
+        setCurrentModel(m);
+        setPendingModelSelect(false);
+        addMessage({ role: "system", content: `Selected model: ${m}` });
+      } else {
+        setCurrentModel(value);
+        setPendingModelSelect(false);
+        addMessage({ role: "system", content: `Selected model: ${value}` });
+      }
+    },
+    [modelsList, addMessage]
+  );
+
   const handleCommand = useCallback(
     async (cmd: string) => {
       const parts = cmd.trim().split(/\s+/);
@@ -298,24 +313,7 @@ export default function Home() {
           addMessage({ role: "system", content: `Unknown command: ${command}. Type /help for available commands.` });
       }
     },
-    [addMessage, updateLastMessage, currentModel, fetchModels]
-  );
-
-  const selectModel = useCallback(
-    (value: string) => {
-      const num = parseInt(value, 10);
-      if (!isNaN(num) && num > 0 && num <= modelsList.length) {
-        const m = modelsList[num - 1];
-        setCurrentModel(m);
-        setPendingModelSelect(false);
-        addMessage({ role: "system", content: `Selected model: ${m}` });
-      } else {
-        setCurrentModel(value);
-        setPendingModelSelect(false);
-        addMessage({ role: "system", content: `Selected model: ${value}` });
-      }
-    },
-    [modelsList, addMessage]
+    [addMessage, updateLastMessage, currentModel, fetchModels, selectModel]
   );
 
   const handleSubmit = useCallback(
