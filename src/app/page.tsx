@@ -18,13 +18,12 @@ type ModelInfo = {
 };
 
 export default function Home() {
-  const DEFAULT_MODEL = "@cf/moonshotai/kimi-k2.5";
   const [mode, setMode] = useState<"chat" | "terminal">("chat");
   const [messages, setMessages] = useState<Message[]>([
     { role: "system", content: "Welcome to kimitui. Type /help for available commands." },
   ]);
   const [input, setInput] = useState("");
-  const [currentModel, setCurrentModel] = useState<string>(DEFAULT_MODEL);
+  const [currentModel, setCurrentModel] = useState<string>("@cf/moonshotai/kimi-k2.5");
   const [streaming, setStreaming] = useState(false);
   const [modelsList, setModelsList] = useState<string[]>([]);
   const [pendingModelSelect, setPendingModelSelect] = useState(false);
@@ -34,7 +33,7 @@ export default function Home() {
 
   useEffect(() => {
     const saved = localStorage.getItem("kimitui-model");
-    if (saved && saved !== DEFAULT_MODEL) {
+    if (saved && saved !== "@cf/moonshotai/kimi-k2.5") {
       localStorage.removeItem("kimitui-model");
     }
   }, []);
