@@ -228,6 +228,16 @@ export default function Home() {
           content: `\n📁 Created ${written} file${written !== 1 ? "s" : ""}${failed > 0 ? ` (${failed} failed)` : ""}: ${files.map(f => f.path).join(", ")}`,
         });
       }
+
+      const wantsClipboard = /clipboard|copiar|cop(y|iar)|copy to/i.test(userMessage);
+      if (wantsClipboard && fullContent) {
+        try {
+          await navigator.clipboard.writeText(fullContent);
+          addMessage({ role: "system", content: "\n📋 Copied to clipboard" });
+        } catch {
+          addMessage({ role: "system", content: "\n⚠️ Could not copy to clipboard" });
+        }
+      }
     },
     [addMessage, appendToLastMessage, updateLastMessage, fsOp]
   );

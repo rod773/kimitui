@@ -1,5 +1,6 @@
 import { createInterface } from "readline";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync, statSync } from "fs";
+import { execSync } from "child_process";
 import { homedir } from "os";
 import { join, relative, isAbsolute, normalize } from "path";
 
@@ -172,6 +173,24 @@ async function streamChat(model, userMessage) {
         }
       }
       print(`\n📁 Created ${written} file${written !== 1 ? "s" : ""}${failed > 0 ? ` (${failed} failed)` : ""}: ${files.map(f => f.path).join(", ")}`, "\x1b[36m");
+    }
+
+    const wantsClipboard = /clipboard|copiar|cop(y|iar)|copy to/i.test(userMessage);
+    if (wantsClipboard && fullContent) {
+      try {
+        const text = fullContent.replace(/```[\s\S]*?```/g, "").trim() || fullContent.trim();
+        if (process.platform === "win32") {
+          const tmpFile = join(PROJECT_ROOT, ".clip.txt");
+          writeFileSync(tmpFile, text, "utf-8");
+          execSync(`powershell -command "Get-Content '${tmpFile}' | Set-Clipboard"`, { stdio: "pipe" });
+          unlinkSync(tmpFile);
+        } else {
+          execSync(`printf '%s' "${text.replace(/"/g, '\\"')}" | xclip -selection clipboard 2>/dev/null || printf '%s' "${text.replace(/"/g, '\\"')}" | xsel -b 2>/dev/null || echo -n "${text.replace(/"/g, '\\"')}" | pbcopy`, { stdio: "pipe" });
+        }
+        print("\n📋 Copied to clipboard", "\x1b[36m");
+      } catch {
+        print("\n⚠️ Could not copy to clipboard", "\x1b[31m");
+      }
     }
   } catch (err) {
     if (err.name === "AbortError") {
